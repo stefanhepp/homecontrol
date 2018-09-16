@@ -1,4 +1,4 @@
-OPTIONS=-mmcu=atmega48
+OPTIONS=-mmcu=atmega48 -Wall -Os
 SOURCES=main.c
 
 all: control.hex
