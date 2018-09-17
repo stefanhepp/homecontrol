@@ -96,13 +96,29 @@ unsigned char DO_Staircase  = 0;
 unsigned char DO_Stair_Light = 0;
 unsigned char DO_Stair_Sense = 0;
 
+unsigned char Last_input = 0;
+
+#define UART_BUF_SZ  8
+
+typedef struct {
+    unsigned char start;
+    unsigned char len;
+    unsigned char buf[UART_BUF_SZ];
+} uart_buf_t;
+
+uart_buf_t UART_TX_Buf;
+uart_buf_t UART_RX_Buf;
+
 void sleep(void)
 {
-    sleep_enable();
-    //sleep_bod_disable();
-    sei();
-    sleep_cpu();
-    sleep_disable();
+    // Only sleep it there is no input change since last read
+    if (Last_input == PINB) {
+	sleep_enable();
+	//sleep_bod_disable();
+	sei();
+	sleep_cpu();
+	sleep_disable();
+    }
 }
 
 void init_switch(switch_t *sw)
@@ -117,14 +133,65 @@ void update_switch(switch_t *sw, unsigned char value)
     
 }
 
+void buf_push(uart_buf_t *buf, unsigned char value)
+{
+    if (buf->len < UART_BUF_SZ) {
+	buf->buf[ (buf->start + buf->len) % UART_BUF_SZ ] = value;
+	buf->len++;
+    }
+}
+
+unsigned char buf_pop(uart_buf_t *buf)
+{
+    unsigned char ret = 0;
+
+    if (buf->len > 0) {
+	ret = buf->buf[buf->start];
+	buf->start++;
+	buf->len--;
+    }
+    return ret;
+}
+
+ISR(USART_RX_vect)
+{
+    buf_push( &UART_RX_Buf, UDR0 );
+}
+
+ISR(USART_UDRE_vect)
+{
+    if (UART_TX_Buf.len > 0) {
+	UDR0 = buf_pop( &UART_TX_Buf );
+    } else {
+	// Stop transmitting
+	UCSR0B &= ~_BV( UDRIE0 );
+    }
+}
+
 void send_command(unsigned char cmd, unsigned char value)
 {
+    buf_push( &UART_TX_Buf, UART_CMD_HEADER | cmd );
+    buf_push( &UART_TX_Buf, value );
 
+    // Start transmitting
+    UCSR0B |= _BV( UDRIE0 );
 }
 
 char read_command(unsigned char *cmd, unsigned char *value)
 {
-
+    // We need at least 2 characters in the buffer for a valid message
+    while (UART_RX_Buf.len > 1) {
+	*cmd = buf_pop(&UART_RX_Buf);
+	if ((*cmd & UART_CMD_HEADER) == UART_CMD_HEADER) {
+	    if (UART_RX_Buf.len > 0) {
+		*value = buf_pop(&UART_RX_Buf);
+	    } else {
+		// Not yet enough data
+		buf_push(&UART_RX_Buf, *cmd);
+		return 0;
+	    }
+	}
+    }
     return 0;
 }
 
@@ -159,10 +226,12 @@ void cmd_all_off(void)
  */
 void read_inputs(void)
 {
-    update_switch(&SW_Livingroom,      bit_is_set(PINB, PB0));
-    update_switch(&SW_Staircase,       bit_is_set(PINB, PB1));
-    update_switch(&SW_Stair_Light,     bit_is_set(PINB, PB2));
-    update_switch(&SW_Stair_Staircase, bit_is_set(PINB, PB3));
+    Last_input = PINB;
+
+    update_switch(&SW_Livingroom,      Last_input & (1 << PB0));
+    update_switch(&SW_Staircase,       Last_input & (1 << PB1));
+    update_switch(&SW_Stair_Light,     Last_input & (1 << PB2));
+    update_switch(&SW_Stair_Staircase, Last_input & (1 << PB3));
 
     update_switch(&SW_Stair_Sense,     bit_is_set(PINC, PC2));
 }
@@ -178,11 +247,14 @@ void process_uart(void)
     while (read_command(&cmd, &value)) {
 	switch (cmd) {
 	    case UART_CMD_LIVINGROOM:
-
+		DO_Livingroom = value & 0x01;
 		break;
 	    case UART_CMD_STAIRCASE:
+		DO_Staircase = value & 0x01;
 		break;
 	    case UART_CMD_STAIR:
+		DO_Stair_Sense = (value >> 1) & 0x01;
+		DO_Stair_Light =  value       & 0x01;
 		break;
 	    case UART_CMD_ALL_OFF:
 		cmd_all_off();
@@ -306,8 +378,8 @@ int main()
 #else
     UCSR0A &= ~_BV(U2X0);
 #endif
-    // Enable RX and TX
-    UCSR0B = _BV(RXEN0) | _BV(TXEN0);
+    // Enable RX and TX, RX interrupts
+    UCSR0B = _BV(RXEN0) | _BV(TXEN0) | _BV(RXCIE0);
     // Set frame format: 8N1
     UCSR0C = (3 << UCSZ00);
 
