@@ -5,6 +5,8 @@ from pixtendv2s import PiXtendV2S
 import time
 import datetime
 import sys
+import serial
+import math
 
 class Button(object):
     OFF        = 0
@@ -145,8 +147,10 @@ class Lamp(object):
     ON    = 1
     BLINK = 2
 
-    def __init__(self):
+    def __init__(self, top = 1000):
         self._state = self.OFF
+        self._counter = 0.0
+        self._top = top
 
     @property
     def state(self):
@@ -154,10 +158,20 @@ class Lamp(object):
 
     @state.setter
     def state(self, value):
+        if value == self.BLINK and self._state != value:
+            # Reset counter when we start blinking
+            self._counter = 0.0
         self._state = value
 
     @property
     def output(self):
+        if self._state == self.ON:
+            return self._top
+        if self._state == self.BLINK:
+            fact = 0.5 - math.cos( self._counter ) / 2.0
+            # Will be called ~ every 50ms. Let's blink once every 3s
+            self._counter += math.pi / 30
+            return int(fact * self._top)
         return 0
 
 class HomeControl(object):
@@ -171,6 +185,8 @@ class HomeControl(object):
         
         if self.p is None:
             raise Exception("Could not initialize PiXtend SPI control interface.")
+
+        self.uart = serial.Serial('/dev/ttyS0', 9600, timeout=0)
 
         # Controls
         self.auto_open_door = False
@@ -227,6 +243,13 @@ class HomeControl(object):
         self.p.gpio_pullups_enable = True
 
         # Setup PWM outputs
+        # PWM mode, enable A+B, 64x prescaler
+        self.p.pwm0_ctrl0 = 121
+        # TOP is 1000 (120Hz)
+        self.p.pwm0_ctrl1 = 1000
+        # Turn off LEDs
+        self.p.pwm0a = 0
+        self.p.pwm0b = 0
 
         #self.p.watchdog = 4000
         #self.p.state_let_off = True
@@ -264,7 +287,8 @@ class HomeControl(object):
             self.garden_pump.update( True )
         if self.switch_pump == self.PUMP_TIMER:
             dt = datetime.datetime.now()
-            if (dt.hour >= 10 and dt.hour < 11) or (dt.hour >= 17 and dt.hour < 20):
+            if (dt.month >= 5 and dt.month < 10) and
+               ((dt.hour >= 11 and dt.hour < 12) or (dt.hour >= 17 and dt.hour < 20)):
                 self.garden_pump.update( True )
             else:
                 self.garden_pump.update( False )
@@ -305,11 +329,14 @@ class HomeControl(object):
             self.lamp_cellar.state = Lamp.OFF
 
         if self.garden_light.state is True:
-            self.lamp_garden = Lamp.ON
+            self.lamp_garden.state = Lamp.ON
         elif self.garden_pump.state is True:
-            self.lamp_garden = Lamp.BLINK
+            self.lamp_garden.state = Lamp.BLINK
         else:
-            self.lamp_garden = Lamp.OFF
+            self.lamp_garden.state = Lamp.OFF
+
+        self.p.pwm0a = self.lamp_cellar.output
+        self.p.pwm0b = self.lamp_garden.output
 
 # -----------------------------------------------------
 # Main Program
