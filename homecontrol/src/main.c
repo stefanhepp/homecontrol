@@ -178,7 +178,6 @@ ISR(TIMER1_COMPA_vect)
 {
     unsigned char cnt = 0;
 
-    cnt += update_timer(&SW_Livingroom);
     cnt += update_timer(&SW_Staircase);
     cnt += update_timer(&SW_Stair_Light);
     cnt += update_timer(&SW_Stair_Staircase);
@@ -202,9 +201,20 @@ void init_switch(switch_t *sw)
 }
 
 /**
- * Update the status of a switch from an pin input.
+ * Update the status of a toggle switch from an pin input.
  */
 void update_switch(switch_t *sw, unsigned char value)
+{
+    if (sw->state != value) {
+	sw->pressed = P_SHORT;
+    }
+    sw->state = value;
+}
+
+/**
+ * Update the status of a push button from an pin input.
+ */
+void update_button(switch_t *sw, unsigned char value)
 {
     if (!sw->state && value) {
 	start_timer(sw);
@@ -362,11 +372,11 @@ void read_inputs(void)
     Last_input = PINB;
 
     update_switch(&SW_Livingroom,      Last_input & (1 << PB0) ? 1 : 0);
-    update_switch(&SW_Staircase,       Last_input & (1 << PB1) ? 1 : 0);
-    update_switch(&SW_Stair_Light,     Last_input & (1 << PB2) ? 1 : 0);
-    update_switch(&SW_Stair_Staircase, Last_input & (1 << PB3) ? 1 : 0);
+    update_button(&SW_Staircase,       Last_input & (1 << PB1) ? 1 : 0);
+    update_button(&SW_Stair_Light,     Last_input & (1 << PB2) ? 1 : 0);
+    update_button(&SW_Stair_Staircase, Last_input & (1 << PB3) ? 1 : 0);
 
-    update_switch(&SW_Stair_Sense,     bit_is_set(PINC, PC2) ? 1 : 0);
+    update_button(&SW_Stair_Sense,     bit_is_set(PINC, PC2) ? 1 : 0);
 }
 
 /**
