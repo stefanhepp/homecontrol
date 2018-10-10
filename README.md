@@ -3,6 +3,12 @@ HomeControl
 
 This is the sourcecode and plans for my home automation system.
 
+Content
+=======
+
+- `homecontrol`: Sources and schematics for a simple AtMega based home automation controller with 8 24VDC digital inputs, 8 24VDC digital outputs (open collector), RS232 and 2 230VAC sense inputs.
+- `pixtend`: Sources for the main controller, based on an PiXtend v2-S with Raspberry 3B, written in Python. Connects via RS232 and MQTT to the network.
+
 License
 =======
 
