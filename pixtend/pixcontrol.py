@@ -59,25 +59,56 @@ class SwitchButton(Button):
         self._state = pressed
 
 
+class MQTTSerializer(object):
+    def serialize(self, value):
+        return value
+
+    def deserialize(self, payload):
+        return payload
+
+class TableSerializer(MQTTSerializer):
+    """ Translate values via a lookup table. """
+
+    def __init__(self, table):
+        self._table = table
+        self._reverse_table = dict(zip(table.values(), table.keys()))
+
+    def serialize(self, value):
+        return self._table.get(value)
+
+    def deserialize(self, payload):
+        return self._reverse_table.get(payload)
+
+class TimeSerializer(MQTTSerializer):
+    def serialize(self, value):
+        return value.strftime("%H:%M")
+
+    def deserialize(self, payload):
+        """ Split a H:M string and return a time object, or None if the format does not match """
+        t = payload.split(":")
+        if len(t) != 2:
+            return None
+        return datetime.time( int(t[0]), int(t[1]) )
+
+
 class Signal(object):
     def __init__(self, initstate = False):
         self._input = initstate
         self._output = initstate
         self._publish = False
         self._changed = False
-        self.translate = { True: "ON", False: "OFF" }
+        self._translate = TableSerializer( { True: "ON", False: "OFF" } )
 
     @property
     def translate(self):
         return self._translate
 
     @translate.setter
-    def translate(self, table):
-        self._translate = table
-        self._msg_translate = dict(zip(table.values(), table.keys()))
+    def translate(self, value):
+        self._translate = TableSerializer( value )
 
     def on_message(self, client, userdata, msg):
-        data = self._msg_translate.get( str( msg.payload ) )
+        data = self._translate.deserialize( str( msg.payload ) )
         if data is not None:
             self.update(data, publish=False)
 
@@ -90,7 +121,7 @@ class Signal(object):
             self._mqtt.subscribe(topic)
             self._mqtt.message_callback_add(self._topic, lambda c, u, m: self.on_message(c, u, m))
         if publish:
-            data = self._translate.get(self._input)
+            data = self._translate.serialize(self._input)
             if data is not None:
                 self._mqtt.publish(self._topic, data, retain = self._retain)
 
@@ -99,7 +130,7 @@ class Signal(object):
             self._changed = True
             # Publish MQTT data
             if publish and self._publish:
-                data = self._translate.get(value)
+                data = self._translate.serialize(value)
                 if data is not None:
                     self._mqtt.publish(self._topic, data, retain = self._retain)
         self._update(value)
@@ -123,6 +154,9 @@ class Signal(object):
     def output(self):
         self._update_output()
         return self._output
+
+    def _update(self, value):
+        pass
 
     def _update_output(self):
         pass
@@ -169,6 +203,31 @@ class ExtendSignal(Signal):
     def _update_output(self):
         if self._output and not self._input and time.time() - self._pulse_start > self.duration:
             self._output = False
+
+class TimeProvider:
+    def __init__(self):
+        self.dtime = datetime.datetime.now()
+
+    def update(self):
+        self.dtime = datetime.datetime.now()
+
+class TimeSignal(Signal):
+    """ Trigger an output based on day time. """
+
+    EARLIER_THAN = 0
+    LATER_THAN   = 1
+
+    def __init__(self, timeprovider, hour = 0, minute = 0, op = EARLIER_THAN):
+        Signal.__init__(self, datetime.time(hour, minute))
+        self._time = timeprovider
+        self._op = op
+        self._translate = TimeSerializer()
+
+    def _update_output(self):
+        if self._op == self.EARLIER_THAN:
+            self._output = self._time.dtime.time() < self._input
+        else:
+            self._output = self._time.dtime.time() > self._input
 
 
 class Lamp(object):
@@ -245,8 +304,18 @@ class HomeControl(object):
         self.uart = serial.Serial('/dev/ttyS0', 9600, timeout=0)
         self.uart_buf = []
 
+        self.now = TimeProvider()
+
         # Configuration
         self.auto_open_door = StateSignal()
+        self.all_off_time = TimeSignal(self.now, 6, 30, TimeSignal.LATER_THAN)
+        self.all_off_trigger = StateSignal()
+        self.pump_interval_1_start = TimeSignal(self.now, 11, 0, TimeSignal.LATER_THAN)
+        self.pump_interval_1_end   = TimeSignal(self.now, 12, 0, TimeSignal.EARLIER_THAN)
+        self.pump_interval_2_start = TimeSignal(self.now, 17, 0, TimeSignal.LATER_THAN)
+        self.pump_interval_2_end   = TimeSignal(self.now, 19, 0, TimeSignal.EARLIER_THAN)
+        self.pump_interval_3_start = TimeSignal(self.now,  0, 0, TimeSignal.LATER_THAN)
+        self.pump_interval_3_end   = TimeSignal(self.now,  0, 0, TimeSignal.EARLIER_THAN)
 
         # Inputs
         self.switch_pump = StateSignal(self.PUMP_OFF)
@@ -379,6 +448,14 @@ class HomeControl(object):
         self.mqtt_all_off.translate = {self.ALL_OFF_CELLAR: 'CELLAR', self.ALL_OFF_ALL: 'ALL'}
         self.mqtt_all_off.publish('home/light/all_off', publish=False, retain=False)
 
+        self.all_off_time.publish('home/control/all_off_time')
+        self.pump_interval_1_start.publish('home/pump/interval_1_start')
+        self.pump_interval_1_end.publish(  'home/pump/interval_1_end'  )
+        self.pump_interval_2_start.publish('home/pump/interval_2_start')
+        self.pump_interval_2_end.publish(  'home/pump/interval_2_end'  )
+        self.pump_interval_3_start.publish('home/pump/interval_3_start')
+        self.pump_interval_3_end.publish(  'home/pump/interval_3_end'  )
+
     def mqtt_message(self, client, userdata, msg):
         pass
 
@@ -448,11 +525,16 @@ class HomeControl(object):
     def send_uart(self, cmd, value):
         self.uart.write( chr(self.UART_CMD_HEADER + cmd) + chr( int( value ) ) )
 
-    def update_pump_timer(self):
+    def update_timer(self):
         """ Return True if the pump timer is active, else False. """
-        dt = datetime.datetime.now()
-        enabled = (dt.month >= 5 and dt.month < 10) and ((dt.hour >= 11 and dt.hour < 12) or (dt.hour >= 17 and dt.hour < 20))
+        self.now.update()
+        enabled = (self.pump_interval_1_start.output and self.pump_interval_1_end.output) or \
+                  (self.pump_interval_2_start.output and self.pump_interval_2_end.output) or \
+                  (self.pump_interval_3_start.output and self.pump_interval_3_end.output)
         self.pump_timer.update( enabled )
+
+        # Update a state signal with the all-off timer state to trigger on positive edge.
+        self.all_off_trigger.update( self.all_off_time.output )
 
     def control_lights(self):
         # Garden light
@@ -490,7 +572,12 @@ class HomeControl(object):
             self.all_off(staircase = False)
         if self.mqtt_all_off.state == self.ALL_OFF_ALL:
             self.all_off(staircase = True)
+        # Clear MQTT trigger input
         self.mqtt_all_off.update(self.ALL_OFF_NONE)
+
+        # Turn off all lights when the timer triggers
+        if self.all_off_trigger.changed and self.all_off_trigger.state:
+            self.all_off(staircase = True)
 
         # Clear handled events
         self.switch_garden.clear()
@@ -502,6 +589,7 @@ class HomeControl(object):
         self.stair_light.clear()
         self.stair_sensor.clear()
         self.mqtt_all_off.clear()
+        self.all_off_trigger.clear()
 
     def control_pump(self):
         # Pump manual switch override
@@ -592,7 +680,7 @@ while True:
             
             c.read_uart()
 
-            c.update_pump_timer()
+            c.update_timer()
 
             c.control_lights()
 
