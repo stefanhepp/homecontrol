@@ -338,6 +338,7 @@ class HomeControl(object):
         self.cellar_light.update( False )
         self.shop_large_light.update( False )
         self.shop_small_light.update( False )
+        self.garden_light.update( False )
         if staircase:
             self.send_uart(self.UART_CMD_ALL_OFF, 1)
 
@@ -405,7 +406,7 @@ class HomeControl(object):
             cmd = ord(self.uart_buf[0])
             val = ord(self.uart_buf[1])
             if cmd & 0xF0 == self.UART_CMD_HEADER:
-                cmd = cmd & 0xF0
+                cmd = cmd & 0x0F
                 if cmd == self.UART_CMD_LIVINGROOM:
                     # Long press is ignored (not a push button)
                     self.livingroom_light.update( bool(val) )
