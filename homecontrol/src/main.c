@@ -89,13 +89,19 @@
 #define UART_CMD_SENSE         0x06
 
 #define P_OFF     0
+// Short press event
 #define P_SHORT   1
+// Long press event
 #define P_LONG    2
+// pressed but not yet released
 #define P_PRESSED 3
 
 typedef struct {
+    // current button pin state
     unsigned char  state;
+    // button event state
     unsigned char  pressed;
+    // countdown for long button press in 100ms steps. If non-zero, countdown is running
     unsigned short time_longpress;
 } switch_t;
 
@@ -147,7 +153,8 @@ void sleep(void)
  */
 void start_timer(switch_t *sw)
 {
-    sw->time_longpress = 20;
+    // Start timer with 1.8s
+    sw->time_longpress = 18;
     // Enable timer
     TCCR1B = 0x1D;
 }
@@ -173,7 +180,7 @@ void init_timer(void)
 char update_timer(switch_t *sw)
 {
     if (sw->pressed != P_PRESSED) {
-	// Disable timer if switch is released
+	// Disable timer if switch is released (set to SHORT in the meantime)
 	sw->time_longpress = 0;
 	return 0;
     }
@@ -182,6 +189,7 @@ char update_timer(switch_t *sw)
 	if (sw->time_longpress > 0) {
 	    return 1;
 	} else {
+	    // Set to LONG press event when countdown finishes, even if button is still pressed
 	    sw->pressed = P_LONG;
 	    return 0;
 	}
@@ -236,6 +244,7 @@ void update_button(switch_t *sw, unsigned char value)
 	sw->pressed = P_PRESSED;
     }
     if (sw->state && !value) {
+	// If the timer runs out, this gets set to LONG
 	if (sw->pressed == P_PRESSED) {
 	    sw->pressed = P_SHORT;
 	}
