@@ -85,7 +85,7 @@
 #define UART_CMD_ALL_OFF       0x04
 // - Status. Value = 000 | Sense | Stair Sense | Stair Light | Staircase | Livingroom
 #define UART_CMD_STATUS        0x05
-// - Sense notification. Value = 1: Motion detected
+// - Sense notification. Value = 0: Motion Timeout, 1: Motion detected
 #define UART_CMD_SENSE         0x06
 
 #define P_OFF     0
@@ -400,7 +400,7 @@ void read_inputs(void)
     update_button(&SW_Stair_Light,     Last_input & (1 << PB2) ? 1 : 0);
     update_button(&SW_Stair_Staircase, Last_input & (1 << PB3) ? 1 : 0);
 
-    update_button(&SW_Stair_Sense,     bit_is_set(PINC, PC2) ? 1 : 0);
+    update_switch(&SW_Stair_Sense,     bit_is_set(PINC, PC2) ? 1 : 0);
 }
 
 /**
@@ -496,7 +496,7 @@ void process_inputs(void)
 
     // Motion sense input
     if (SW_Stair_Sense.pressed != P_OFF) {
-	send_command(UART_CMD_SENSE, 1);
+	send_command(UART_CMD_SENSE, SW_Stair_Sense.state);
     }
 
     // All new inputs processed, clear status
