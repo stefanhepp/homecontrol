@@ -347,8 +347,8 @@ class HomeControl(object):
         self.switch_garden = PushButton()
         self.switch_shop_small = SwitchButton()
         self.switch_shop_large = SwitchButton()
-        self.button_bell_upstairs  = StateSignal()
-        self.button_bell_ground = StateSignal()
+        self.button_garden_bell  = StateSignal()
+        self.button_garden_door = StateSignal()
 
         # HomeControl relay signals
         self.livingroom_light = StateSignal()
@@ -458,8 +458,7 @@ class HomeControl(object):
         self.shop_small_light.publish('home/light/shop_small')
         self.shop_large_light.publish('home/light/shop_large')
 
-        self.button_bell_ground.publish('home/control/doorbell_groundfloor')
-        self.button_bell_upstairs.publish('home/control/doorbell_upstairs')
+        self.button_garden_bell.publish('home/control/doorbell')
         self.door.publish('home/control/door')
         self.auto_open_door.publish('home/settings/door_auto_open')
 
@@ -496,8 +495,8 @@ class HomeControl(object):
         self.switch_garden.update( self.p.digital_in2 )
         self.switch_shop_small.update( self.p.digital_in1 )
         self.switch_shop_large.update( self.p.digital_in0 )
-        self.button_bell_upstairs.update( self.p.digital_in5 )
-        self.button_bell_ground.update( self.p.digital_in4 )
+        self.button_garden_bell.update( self.p.digital_in4 )
+        self.button_garden_door.update( self.p.digital_in5 )
 
     def read_uart(self):
         # Read UART buffer into buffer
@@ -643,16 +642,18 @@ class HomeControl(object):
 
     def control_door(self):
         # Door control
-        if self.auto_open_door.output:
-            if self.button_bell_upstairs.changed or self.button_bell_ground.changed:
-                self.door.update( self.button_bell_upstairs.output or self.button_bell_ground.output )
+        if self.auto_open_door.output or True:
+            if self.button_garden_bell.changed and not self.button_garden_door.output:
+                self.door.update( self.button_garden_bell.output )
         elif self.auto_open_door.changed:
             # When turning off the automatic door opener, make sure we disable the relay.
             self.door.update(False)
+        if self.button_garden_door.changed:
+            self.door.update( self.button_garden_door.output )
 
         # Clear handled events
-        self.button_bell_upstairs.clear()
-        self.button_bell_ground.clear()
+        self.button_garden_bell.clear()
+        self.button_garden_door.clear()
         self.door.clear()
         self.auto_open_door.clear()
 
