@@ -3,3 +3,7 @@
 *.hex
 *.pyc
 *.o
+*-bak
+_autosave-*
+sym-lib-table
+fp-info-cache
