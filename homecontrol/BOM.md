@@ -3,7 +3,6 @@ Parts for HomeControl
 
 Case
 ----
-- Axxatronic DIN Rail Standard Height Module Box
-  - 1x CNMB/62: 6TE case (106mm)
-    - PCB: 86.5mm x 103mm
-  - 4x CNMB/3/TG508P: 9 pole terminal guard
+- DMB-4773-CC
+  Datasheet: https://www.budind.com/pdf/hb4773.pdf
+  Digikey: https://www.digikey.at/product-detail/de/bud-industries/DMB-4773/377-1810-ND/2499329
