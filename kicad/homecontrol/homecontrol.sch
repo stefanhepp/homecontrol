@@ -60,19 +60,6 @@ F 3 "" H 2800 2100 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
-L Interface_UART:MAX232 U4
-U 1 1 609E0879
-P 5550 4050
-F 0 "U4" H 5000 5100 50  0000 C CNN
-F 1 "MAX232EEPE+" H 5900 5100 50  0000 C CNN
-F 2 "Package_DIP:DIP-16_W7.62mm_Socket" H 5600 3000 50  0001 L CNN
-F 3 "https://datasheets.maximintegrated.com/en/ds/MAX202E-MAX241E.pdf" H 5550 4150 50  0001 C CNN
-F 4 "Digikey" H 5550 4050 50  0001 C CNN "Supplier"
-F 5 "MAX232EEPE+-ND" H 5550 4050 50  0001 C CNN "Supplier_Ref"
-	1    5550 4050
-	1    0    0    -1  
-$EndComp
-$Comp
 L Transistor_Array:ULN2803A U3
 U 1 1 609E351A
 P 4150 5900
@@ -171,7 +158,7 @@ U 1 1 60A11E16
 P 3400 3250
 F 0 "J5" H 3070 3346 50  0000 R CNN
 F 1 "AVR-ISP-10" H 3070 3255 50  0000 R CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_2x05_P2.54mm_Vertical" V 3150 3300 50  0001 C CNN
+F 2 "Connector_IDC:IDC-Header_2x05_P2.54mm_Vertical" V 3150 3300 50  0001 C CNN
 F 3 " ~" H 2125 2700 50  0001 C CNN
 	1    3400 3250
 	-1   0    0    -1  
@@ -234,14 +221,6 @@ Text GLabel 2850 5700 2    50   Input ~ 0
 RXD
 Text GLabel 2850 5800 2    50   Input ~ 0
 TXD
-Text GLabel 4650 4550 0    50   Input ~ 0
-RXD
-Text GLabel 4650 4150 0    50   Input ~ 0
-TXD
-Wire Wire Line
-	4650 4150 4750 4150
-Wire Wire Line
-	4750 4550 4650 4550
 Wire Wire Line
 	2850 5700 2650 5700
 Wire Wire Line
@@ -311,15 +290,15 @@ SCL
 Text GLabel 2850 5300 2    50   Input ~ 0
 SDA
 Text GLabel 2850 4000 2    50   Input ~ 0
-DI0
-Text GLabel 2850 4100 2    50   Input ~ 0
-DI1
-Text GLabel 2850 4200 2    50   Input ~ 0
-DI2
-Text GLabel 2850 4600 2    50   Input ~ 0
 DI6
-Text GLabel 2850 4700 2    50   Input ~ 0
+Text GLabel 2850 4100 2    50   Input ~ 0
+DI5
+Text GLabel 2850 4200 2    50   Input ~ 0
+DI4
+Text GLabel 2850 4600 2    50   Input ~ 0
 DI7
+Text GLabel 2850 4700 2    50   Input ~ 0
+DI8
 Wire Wire Line
 	2850 4700 2650 4700
 Wire Wire Line
@@ -331,25 +310,13 @@ Wire Wire Line
 Wire Wire Line
 	2850 4000 2650 4000
 Text GLabel 2850 4900 2    50   Input ~ 0
-DO0
+DO8
 Text GLabel 2850 5000 2    50   Input ~ 0
-DO1
+DO7
 Wire Wire Line
 	2850 4900 2650 4900
 Wire Wire Line
 	2650 5000 2850 5000
-Wire Wire Line
-	2650 5900 3750 5900
-Wire Wire Line
-	2650 6000 3750 6000
-Wire Wire Line
-	2650 6100 3750 6100
-Wire Wire Line
-	2650 6200 3750 6200
-Wire Wire Line
-	2650 6300 3750 6300
-Wire Wire Line
-	2650 6400 3750 6400
 $Comp
 L power:GND #PWR010
 U 1 1 60AF8C7E
@@ -376,9 +343,9 @@ Wire Wire Line
 	4650 5550 4650 5600
 Wire Wire Line
 	4650 5600 4550 5600
+Text GLabel 3600 6400 0    50   Input ~ 0
+DO8
 Text GLabel 3600 5700 0    50   Input ~ 0
-DO0
-Text GLabel 3600 5800 0    50   Input ~ 0
 DO1
 Wire Wire Line
 	3600 5700 3750 5700
@@ -406,44 +373,6 @@ F 3 "" H 5550 2850 50  0001 C CNN
 	1    5550 2850
 	1    0    0    -1  
 $EndComp
-$Comp
-L power:GND #PWR012
-U 1 1 60B23C16
-P 4300 4400
-F 0 "#PWR012" H 4300 4150 50  0001 C CNN
-F 1 "GND" H 4305 4227 50  0000 C CNN
-F 2 "" H 4300 4400 50  0001 C CNN
-F 3 "" H 4300 4400 50  0001 C CNN
-	1    4300 4400
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	4300 4400 4300 4350
-Wire Wire Line
-	4300 4350 4750 4350
-$Comp
-L power:GND #PWR015
-U 1 1 60B25DE9
-P 6450 4800
-F 0 "#PWR015" H 6450 4550 50  0001 C CNN
-F 1 "GND" H 6455 4627 50  0000 C CNN
-F 2 "" H 6450 4800 50  0001 C CNN
-F 3 "" H 6450 4800 50  0001 C CNN
-	1    6450 4800
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	6450 4800 6450 4750
-Wire Wire Line
-	6450 4750 6350 4750
-Text GLabel 6550 4550 2    50   Input ~ 0
-RS232_RX
-Text GLabel 6550 4150 2    50   Input ~ 0
-RS232_TX
-Wire Wire Line
-	6350 4150 6550 4150
-Wire Wire Line
-	6550 4550 6350 4550
 Text GLabel 7450 5900 1    50   Input ~ 0
 RS232_RX
 Wire Wire Line
@@ -928,7 +857,7 @@ F 3 "" H 6800 2100 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Text GLabel 6850 1750 2    50   Input ~ 0
-DI1
+MISO
 Wire Wire Line
 	6800 1750 6850 1750
 Connection ~ 6800 1750
@@ -1000,7 +929,7 @@ F 3 "" H 6100 2100 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Text GLabel 6150 1750 2    50   Input ~ 0
-DI0
+SCK
 Wire Wire Line
 	6100 1750 6150 1750
 Connection ~ 6100 1750
@@ -1072,7 +1001,7 @@ F 3 "" H 7500 2100 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Text GLabel 7550 1750 2    50   Input ~ 0
-DI2
+MOSI
 Wire Wire Line
 	7500 1750 7550 1750
 Connection ~ 7500 1750
@@ -1144,7 +1073,7 @@ F 3 "" H 8150 2100 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Text GLabel 8200 1750 2    50   Input ~ 0
-MOSI
+DI4
 Wire Wire Line
 	8150 1750 8200 1750
 Connection ~ 8150 1750
@@ -1216,7 +1145,7 @@ F 3 "" H 8800 2100 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Text GLabel 8850 1750 2    50   Input ~ 0
-MISO
+DI5
 Wire Wire Line
 	8800 1750 8850 1750
 Connection ~ 8800 1750
@@ -1288,7 +1217,7 @@ F 3 "" H 9450 2100 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Text GLabel 9500 1750 2    50   Input ~ 0
-SCK
+DI6
 Wire Wire Line
 	9450 1750 9500 1750
 Connection ~ 9450 1750
@@ -1360,7 +1289,7 @@ F 3 "" H 10100 2100 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Text GLabel 10150 1750 2    50   Input ~ 0
-DI6
+DI7
 Wire Wire Line
 	10100 1750 10150 1750
 Connection ~ 10100 1750
@@ -1432,7 +1361,7 @@ F 3 "" H 10750 2100 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Text GLabel 10800 1750 2    50   Input ~ 0
-DI7
+DI8
 Wire Wire Line
 	10750 1750 10800 1750
 Connection ~ 10750 1750
@@ -1895,8 +1824,6 @@ Wire Wire Line
 Wire Wire Line
 	2850 5400 2650 5400
 NoConn ~ 7750 6000
-NoConn ~ 6350 4350
-NoConn ~ 4750 4750
 Text GLabel 3400 5300 0    50   Input ~ 0
 SDA
 Text GLabel 3400 5400 0    50   Input ~ 0
@@ -2023,4 +1950,125 @@ Wire Wire Line
 Text GLabel 7950 5900 1    50   Input ~ 0
 L1
 NoConn ~ 7850 6000
+$Comp
+L Interface_UART:MAX232 U4
+U 1 1 609E0879
+P 5550 4050
+F 0 "U4" H 5000 5100 50  0000 C CNN
+F 1 "MAX232EEPE+" H 5900 5100 50  0000 C CNN
+F 2 "Package_DIP:DIP-16_W7.62mm_Socket" H 5600 3000 50  0001 L CNN
+F 3 "https://datasheets.maximintegrated.com/en/ds/MAX202E-MAX241E.pdf" H 5550 4150 50  0001 C CNN
+F 4 "Digikey" H 5550 4050 50  0001 C CNN "Supplier"
+F 5 "MAX232EEPE+-ND" H 5550 4050 50  0001 C CNN "Supplier_Ref"
+	1    5550 4050
+	1    0    0    -1  
+$EndComp
+Text GLabel 6550 4550 2    50   Input ~ 0
+RS232_RX
+Text GLabel 6550 4150 2    50   Input ~ 0
+RS232_TX
+NoConn ~ 6350 4350
+Wire Wire Line
+	6350 4150 6550 4150
+Wire Wire Line
+	6550 4550 6350 4550
+Wire Wire Line
+	6450 4800 6450 4750
+Wire Wire Line
+	6450 4750 6350 4750
+$Comp
+L power:GND #PWR015
+U 1 1 60B25DE9
+P 6450 4800
+F 0 "#PWR015" H 6450 4550 50  0001 C CNN
+F 1 "GND" H 6455 4627 50  0000 C CNN
+F 2 "" H 6450 4800 50  0001 C CNN
+F 3 "" H 6450 4800 50  0001 C CNN
+	1    6450 4800
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR012
+U 1 1 60B23C16
+P 4300 4400
+F 0 "#PWR012" H 4300 4150 50  0001 C CNN
+F 1 "GND" H 4305 4227 50  0000 C CNN
+F 2 "" H 4300 4400 50  0001 C CNN
+F 3 "" H 4300 4400 50  0001 C CNN
+	1    4300 4400
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	4300 4400 4300 4350
+Text GLabel 4650 4150 0    50   Input ~ 0
+TXD
+Wire Wire Line
+	4650 4150 4750 4150
+NoConn ~ 4750 4750
+Wire Wire Line
+	4750 4550 4650 4550
+Wire Wire Line
+	4300 4350 4750 4350
+Text GLabel 4650 4550 0    50   Input ~ 0
+RXD
+Text GLabel 3600 5800 0    50   Input ~ 0
+DO2
+Text GLabel 3600 5900 0    50   Input ~ 0
+DO3
+Text GLabel 3600 6000 0    50   Input ~ 0
+DO4
+Text GLabel 3600 6100 0    50   Input ~ 0
+DO5
+Text GLabel 3600 6200 0    50   Input ~ 0
+DO6
+Text GLabel 3600 6300 0    50   Input ~ 0
+DO7
+Text GLabel 2850 5900 2    50   Input ~ 0
+DO6
+Text GLabel 2850 6000 2    50   Input ~ 0
+DO5
+Text GLabel 2850 6100 2    50   Input ~ 0
+DO4
+Text GLabel 2850 6200 2    50   Input ~ 0
+DO3
+Text GLabel 2850 6300 2    50   Input ~ 0
+DO2
+Text GLabel 2850 6400 2    50   Input ~ 0
+DO1
+Wire Wire Line
+	2650 5900 2850 5900
+Wire Wire Line
+	2850 6000 2650 6000
+Wire Wire Line
+	2650 6100 2850 6100
+Wire Wire Line
+	2850 6200 2650 6200
+Wire Wire Line
+	2650 6300 2850 6300
+Wire Wire Line
+	2850 6400 2650 6400
+Wire Wire Line
+	3600 5900 3750 5900
+Wire Wire Line
+	3750 6000 3600 6000
+Wire Wire Line
+	3600 6100 3750 6100
+Wire Wire Line
+	3750 6200 3600 6200
+Wire Wire Line
+	3600 6300 3750 6300
+Wire Wire Line
+	3750 6400 3600 6400
+$Comp
+L Mechanical:Heatsink_Pad HS1
+U 1 1 61C9F3A7
+P 3800 1650
+F 0 "HS1" H 3941 1689 50  0000 L CNN
+F 1 "Heatsink_Pad" H 3941 1598 50  0000 L CNN
+F 2 "Custom_Library:Heatsink_Aavid_TO-220_H12.7mm" H 3812 1600 50  0001 C CNN
+F 3 "~" H 3812 1600 50  0001 C CNN
+	1    3800 1650
+	1    0    0    -1  
+$EndComp
+NoConn ~ 3800 1750
 $EndSCHEMATC
