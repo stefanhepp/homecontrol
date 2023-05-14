@@ -22,31 +22,31 @@
  *
  * Pinout:
  * - PortB:
- *   - PB0: DIn0 - Livingroom
- *   - PB1: DIn1 - Staircase
- *   - PB2: DIn2 - Stair-Light
- *   - PB3: DIn3 - Stair-Staircase
- *   - PB4: DIn4
- *   - PB5: DIn5
- *   - PB6: DIn6
- *   - PB7: DIn7
+ *   - PB0: DIn6
+ *   - PB1: DIn5
+ *   - PB2: DIn4 - Stair-Staircase
+ *   - PB3: DIn3 - Stair-Light
+ *   - PB4: DIn2 - Staircase
+ *   - PB5: DIn1 - Livingroom
+ *   - PB6: DIn7
+ *   - PB7: DIn8
  * - PortC:
- *   - PC0: DOut0 - Livingroom
- *   - PC1: DOut1 - Staircase
- *   - PC2: Sense In 0 - Stair Sense
- *   - PC3: Sense In 1
+ *   - PC0: DOut1 - Livingroom
+ *   - PC1: DOut2 - Staircase
+ *   - PC2: Sense In 1 - Stair Sense
+ *   - PC3: Sense In 2
  *   - PC4: SDA
  *   - PC5: SCL
  *   - PC6: Reset In
  * - PortD:
  *   - PD0: RXD
  *   - PD1: TXD
- *   - PD2: DOut2 - Stair-Light
- *   - PD3: DOut3 - Stair-Sense
- *   - PD4: DOut4
- *   - PD5: DOut5
- *   - PD6: DOut6
- *   - PD7: DOut7
+ *   - PD2: DOut3 - Stair-Light
+ *   - PD3: DOut4 - Stair-Sense
+ *   - PD4: DOut5
+ *   - PD5: DOut6
+ *   - PD6: DOut7
+ *   - PD7: DOut8
  **/
 
 // Define CPU clock speed and UART baud rate
@@ -67,6 +67,30 @@
     } else { \
 	port &= ~_BV(pin); \
     }
+
+/**
+ * IO Mapping
+ **/
+#define PB_DIN1 PB5
+#define PB_DIN2 PB4
+#define PB_DIN3 PB3
+#define PB_DIN4 PB2
+#define PB_DIN5 PB1
+#define PB_DIN6 PB0
+#define PB_DIN7 PB6
+#define PB_DIN8 PB7
+
+#define PC_SENSE1 PC2
+#define PC_SENSE2 PC3
+
+#define PC_DOUT1 PC0
+#define PC_DOUT2 PC1
+#define PD_DOUT3 PD2
+#define PD_DOUT4 PD3
+#define PD_DOUT5 PD4
+#define PD_DOUT6 PD5
+#define PD_DOUT7 PD6
+#define PD_DOUT8 PD7
 
 /**
  * UART command codes
@@ -395,12 +419,12 @@ void read_inputs(void)
 {
     Last_input = PINB;
 
-    update_switch(&SW_Livingroom,      Last_input & (1 << PB0) ? 1 : 0);
-    update_button(&SW_Staircase,       Last_input & (1 << PB1) ? 1 : 0);
-    update_button(&SW_Stair_Light,     Last_input & (1 << PB2) ? 1 : 0);
-    update_button(&SW_Stair_Staircase, Last_input & (1 << PB3) ? 1 : 0);
+    update_switch(&SW_Livingroom,      Last_input & (1 << PB_DIN1) ? 1 : 0);
+    update_button(&SW_Staircase,       Last_input & (1 << PB_DIN2) ? 1 : 0);
+    update_button(&SW_Stair_Light,     Last_input & (1 << PB_DIN3) ? 1 : 0);
+    update_button(&SW_Stair_Staircase, Last_input & (1 << PB_DIN4) ? 1 : 0);
 
-    update_switch(&SW_Stair_Sense,     bit_is_set(PINC, PC2) ? 1 : 0);
+    update_switch(&SW_Stair_Sense,     bit_is_set(PINC, PC_SENSE1) ? 1 : 0);
 }
 
 /**
@@ -517,10 +541,10 @@ void process_inputs(void)
 
 void write_outputs(void)
 {
-    SET_BIT(PORTC, PC0, DO_Livingroom);
-    SET_BIT(PORTC, PC1, DO_Staircase);
-    SET_BIT(PORTD, PD2, DO_Stair_Light);
-    SET_BIT(PORTD, PD3, DO_Stair_Sense);
+    SET_BIT(PORTC, PC_DOUT1, DO_Livingroom);
+    SET_BIT(PORTC, PC_DOUT2, DO_Staircase);
+    SET_BIT(PORTD, PD_DOUT3, DO_Stair_Light);
+    SET_BIT(PORTD, PD_DOUT4, DO_Stair_Sense);
 }
 
 /**
