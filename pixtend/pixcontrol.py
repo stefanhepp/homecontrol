@@ -24,6 +24,7 @@
 # This software is intended to be run on a PiXtend v2-S board.
 #
 
+
 # Import Pixtend V2 class
 from pixtendv2s import PiXtendV2S
 import time
@@ -32,6 +33,16 @@ import sys
 import serial
 import math
 import paho.mqtt.client as mqtt
+
+
+class Debug:
+     # Print Rx and Tx UART messages
+    DEBUG_UART_TX = False
+    DEBUG_UART_RX = False
+
+    # Debug MQTT messages
+    DEBUG_MQTT = False
+   
 
 class Button(object):
     OFF        = 0
@@ -116,12 +127,18 @@ class TimeSerializer(MQTTSerializer):
 
 
 class Signal(object):
+    PUBLISH_NONE   = False
+    PUBLISH_INPUT  = 1
+    PUBLISH_OUTPUT = 2
+
     def __init__(self, initstate = False):
+        self._init = initstate
         self._input = initstate
         self._output = initstate
-        self._publish = False
+        self._lastpublish = None
+        self._publish = Signal.PUBLISH_NONE
         self._changed = False
-        self._translate = TableSerializer( { True: "ON", False: "OFF" } )
+        self._translate = TableSerializer( { True: "on", False: "off" } )
 
     @property
     def translate(self):
@@ -133,10 +150,12 @@ class Signal(object):
 
     def on_message(self, client, userdata, msg):
         data = self._translate.deserialize( str( msg.payload ) )
+        if Debug.DEBUG_MQTT:
+            print("Received MQTT topic: ", msg.topic, data)
         if data is not None:
             self.update(data, publish=False)
 
-    def publish(self, client, topic, retain = True, subscribe = True, publish = True):
+    def publish(self, client, topic, retain = True, subscribe = True, publish = PUBLISH_INPUT):
         self._mqtt = client
         self._topic = topic
         self._retain = retain
@@ -144,21 +163,29 @@ class Signal(object):
         if subscribe:
             self._mqtt.subscribe(topic)
             self._mqtt.message_callback_add(self._topic, lambda c, u, m: self.on_message(c, u, m))
-        if publish:
-            data = self._translate.serialize(self._input)
+        if publish != Signal.PUBLISH_NONE:
+            self._publish_signal(force=True)
+
+    def _publish_signal(self, force=False):
+        if self._publish == Signal.PUBLISH_NONE: return
+
+        pubdata = self._input if self._publish == Signal.PUBLISH_INPUT else self._output
+
+        if self._lastpublish != pubdata or force:
+            data = self._translate.serialize(pubdata)
             if data is not None:
                 self._mqtt.publish(self._topic, data, retain = self._retain)
+            self._lastpublish = pubdata
 
     def update(self, value, publish=True):
         if self._input is not None and self._input != value:
             self._changed = True
-            # Publish MQTT data
-            if publish and self._publish:
-                data = self._translate.serialize(value)
-                if data is not None:
-                    self._mqtt.publish(self._topic, data, retain = self._retain)
+        # Update output before setting the new value as last input
         self._update(value)
         self._input = value
+        # Publish MQTT data
+        if publish:
+            self._publish_signal()
 
     def toggle(self):
         self.update(not self._input)
@@ -171,12 +198,17 @@ class Signal(object):
     def changed(self):
         return self._changed
 
-    def clear(self):
+    def clear(self, reset=False):
         self._changed = False
+        if reset:
+            self._input = self._init
+            self._update(self._init)
 
     @property
-    def output(self):
+    def output(self, publish=True):
         self._update_output()
+        if publish:
+            self._publish_signal()
         return self._output
 
     def _update(self, value):
@@ -317,12 +349,13 @@ class HomeControl(object):
     # - Sense notification. Value = 1: Motion detected
     UART_CMD_SENSE         = 0x06
 
-
     def __init__(self):
         self.p = PiXtendV2S()
         
         if self.p is None:
             raise Exception("Could not initialize PiXtend SPI control interface.")
+
+        self.mqtt = None
 
         # Setup UART
         self.uart = serial.Serial('/dev/ttyS0', 9600, timeout=0)
@@ -331,7 +364,7 @@ class HomeControl(object):
         self.now = TimeProvider()
 
         # Configuration
-        self.auto_open_door = StateSignal()
+        self.door_auto_open = StateSignal(True)
         self.all_off_time = TimeSignal(self.now, 6, 30, TimeSignal.LATER_THAN)
         self.all_off_trigger = StateSignal()
         self.pump_interval_1_start = TimeSignal(self.now, 11, 0, TimeSignal.LATER_THAN)
@@ -357,6 +390,7 @@ class HomeControl(object):
         self.stair_sensor = StateSignal()
 
         # MQTT IO signals
+        self.mqtt_door_open = StateSignal()
         self.mqtt_all_off = StateSignal(self.ALL_OFF_NONE)
 
         # Control signals
@@ -366,12 +400,13 @@ class HomeControl(object):
 
         # Outputs
         self.garden_pump = StateSignal()
-        self.garden_light = PulseSignal()
+        self.garden_light = StateSignal()
         self.cellar_light = StateSignal()
         self.shop_small_light = StateSignal()
         self.shop_large_light = StateSignal()
-        self.door = ExtendSignal(duration=3.0)
+        self.door = ExtendSignal(duration=3.5)
 
+        # Indicator lamps
         self.lamp_cellar = Lamp()
         self.lamp_garden = Lamp()
 
@@ -390,6 +425,8 @@ class HomeControl(object):
         self.reset()
         
         self.p.watchdog = self.p.WDT_OFF
+
+        self.mqtt_stop()
 
         time.sleep(0.5)
         
@@ -427,57 +464,62 @@ class HomeControl(object):
     def any_cellar_light(self):
         return self.cellar_light.state or self.shop_small_light.state or self.shop_large_light.state
 
-    def all_off(self, staircase=False):
+    def all_off(self, cellar_only=False):
         self.cellar_light.update( False )
         self.shop_large_light.update( False )
         self.shop_small_light.update( False )
         self.garden_light.update( False )
-        if staircase:
+        if not cellar_only:
             self.send_uart(self.UART_CMD_ALL_OFF, 1)
+            self.uart_read_status()
+            
 
     def mqtt_setup(self):
         self.mqtt = mqtt.Client("Pixtend")
         self.mqtt.on_connect = lambda c, d, f, r: self.mqtt_connect(c, d, f, r)
         self.mqtt.on_message = lambda c, d, m: self.mqtt_message(c, d, m)
-        self.mqtt.connect_async("data.home")
+        self.mqtt.connect_async("homectl.home")
         self.mqtt.loop_start()
 
     def mqtt_stop(self):
-        self.mqtt.loop_stop()
+        if self.mqtt is not None:
+            self.mqtt.loop_stop()
 
     def mqtt_connect(self, client, userdata, flags, rc):
-        self.livingroom_light.publish('home/light/livingroom')
-        self.staircase_light.publish('home/light/staircase')
-        self.stair_light.translate = {self.STAIR_OFF: 'OFF', self.STAIR_ON: 'ON', self.STAIR_SENSE: 'SENSE'}
-        self.stair_light.publish('home/light/stair')
-        self.stair_sensor.translate = {True: 'TRIGGERED'}
-        self.stair_sensor.publish('home/control/stair_sensor', subscribe=False, retain=False)
+        self.livingroom_light.publish(client, 'home/light/livingroom')
+        self.staircase_light.publish(client, 'home/light/staircase')
+        self.stair_light.translate = {self.STAIR_OFF: 'off', self.STAIR_ON: 'on', self.STAIR_SENSE: 'sense'}
+        self.stair_light.publish(client, 'home/light/entrance')
+        self.stair_sensor.translate = {True: 'triggered'}
+        self.stair_sensor.publish(client, 'home/light/stair_sensor', subscribe=False, retain=False)
 
-        self.garden_light.publish('home/light/garden')
-        self.cellar_light.publish('home/light/cellar')
-        self.shop_small_light.publish('home/light/shop_small')
-        self.shop_large_light.publish('home/light/shop_large')
+        self.garden_light.publish(client, 'home/light/garden')
+        self.cellar_light.publish(client, 'home/light/cellar')
+        self.shop_small_light.publish(client, 'home/light/shop_small')
+        self.shop_large_light.publish(client, 'home/light/shop_large')
 
-        self.button_garden_bell.publish('home/control/doorbell')
-        self.door.publish('home/control/door')
-        self.auto_open_door.publish('home/settings/door_auto_open')
+        self.button_garden_bell.publish(client, 'home/door/bell', subscribe=False)
+        self.door.publish(client, 'home/door/opener', subscribe=False, publish=Signal.PUBLISH_OUTPUT)
+        self.door_auto_open.publish(client, 'home/door/auto_open')
+        self.mqtt_door_open.translate = {True: 'open'}
+        self.mqtt_door_open.publish(client, 'home/door/open', publish=False, retain=False)
 
-        self.pump_control.translate = {self.PUMP_OFF: 'OFF', self.PUMP_ON: 'ON', self.PUMP_TIMER: 'TIMER'}
-        self.pump_control.publish('home/pump/control')
-        self.pump_override.publish('home/pump/override')
-        self.pump_timer.publish('home/pump/timer', subscribe=False)
-        self.garden_pump.publish('home/pump/status', subscribe=False)
+        self.pump_control.translate = {self.PUMP_OFF: 'off', self.PUMP_ON: 'on', self.PUMP_TIMER: 'timer'}
+        self.pump_control.publish(client, 'home/pump/control')
+        self.pump_override.publish(client, 'home/pump/override')
+        self.pump_timer.publish(client, 'home/pump/timer', subscribe=False)
+        self.garden_pump.publish(client, 'home/pump/status', subscribe=False)
 
-        self.mqtt_all_off.translate = {self.ALL_OFF_CELLAR: 'CELLAR', self.ALL_OFF_ALL: 'ALL'}
-        self.mqtt_all_off.publish('home/light/all_off', publish=False, retain=False)
+        self.mqtt_all_off.translate = {self.ALL_OFF_CELLAR: 'cellar', self.ALL_OFF_ALL: 'all'}
+        self.mqtt_all_off.publish(client, 'home/light/all_off', publish=False, retain=False)
 
-        self.all_off_time.publish('home/control/all_off_time')
-        self.pump_interval_1_start.publish('home/pump/interval_1_start')
-        self.pump_interval_1_end.publish(  'home/pump/interval_1_end'  )
-        self.pump_interval_2_start.publish('home/pump/interval_2_start')
-        self.pump_interval_2_end.publish(  'home/pump/interval_2_end'  )
-        self.pump_interval_3_start.publish('home/pump/interval_3_start')
-        self.pump_interval_3_end.publish(  'home/pump/interval_3_end'  )
+        self.all_off_time.publish(client, 'home/settings/all_off_time')
+        self.pump_interval_1_start.publish(client, 'home/pump/interval_1_start')
+        self.pump_interval_1_end.publish(  client, 'home/pump/interval_1_end'  )
+        self.pump_interval_2_start.publish(client, 'home/pump/interval_2_start')
+        self.pump_interval_2_end.publish(  client, 'home/pump/interval_2_end'  )
+        self.pump_interval_3_start.publish(client, 'home/pump/interval_3_start')
+        self.pump_interval_3_end.publish(  client, 'home/pump/interval_3_end'  )
 
     def mqtt_message(self, client, userdata, msg):
         pass
@@ -505,6 +547,8 @@ class HomeControl(object):
         while len( self.uart_buf ) > 1:
             cmd = ord(self.uart_buf[0])
             val = ord(self.uart_buf[1])
+            if Debug.DEBUG_UART_RX:
+                print(str(datetime.datetime.now()) + " Receive UART Cmd: " + hex(cmd) + ", Val: "  + hex(val))
             if cmd & 0xF0 == self.UART_CMD_HEADER:
                 cmd = cmd & 0x0F
                 if cmd == self.UART_CMD_LIVINGROOM:
@@ -546,7 +590,12 @@ class HomeControl(object):
                 self.uart_buf = self.uart_buf[1:]
 
     def send_uart(self, cmd, value):
+        if Debug.DEBUG_UART_TX:
+            print(str(datetime.datetime.now()) + " Send UART Cmd: " + hex(cmd) + ", Val: " + hex(value))
         self.uart.write( chr(self.UART_CMD_HEADER + cmd) + chr( int( value ) ) )
+
+    def uart_read_status(self):
+        self.send_uart(self.UART_CMD_STATUS, 0)
 
     def update_timer(self):
         """ Return True if the pump timer is active, else False. """
@@ -592,15 +641,15 @@ class HomeControl(object):
 
         # MQTT inputs
         if self.mqtt_all_off.state == self.ALL_OFF_CELLAR:
-            self.all_off(staircase = False)
+            self.all_off(cellar_only = True)
         if self.mqtt_all_off.state == self.ALL_OFF_ALL:
-            self.all_off(staircase = True)
+            self.all_off(cellar_only = False)
         # Clear MQTT trigger input
         self.mqtt_all_off.update(self.ALL_OFF_NONE)
 
         # Turn off all lights when the timer triggers
         if self.all_off_trigger.changed and self.all_off_trigger.state:
-            self.all_off(staircase = True)
+            self.all_off()
 
         # Clear handled events
         self.switch_garden.clear()
@@ -642,20 +691,28 @@ class HomeControl(object):
 
     def control_door(self):
         # Door control
-        if self.auto_open_door.output or True:
+        if self.door_auto_open.output:
             if self.button_garden_bell.changed and not self.button_garden_door.output:
                 self.door.update( self.button_garden_bell.output )
-        elif self.auto_open_door.changed:
+        elif self.door_auto_open.changed:
             # When turning off the automatic door opener, make sure we disable the relay.
             self.door.update(False)
         if self.button_garden_door.changed:
             self.door.update( self.button_garden_door.output )
 
+        if self.mqtt_door_open.output:
+            # Send a short pulse to the door, will be extended
+            self.door.update(True)
+            self.door.update(False)
+        # Reset handled MQTT input
+        self.mqtt_door_open.update(False)
+
         # Clear handled events
         self.button_garden_bell.clear()
         self.button_garden_door.clear()
         self.door.clear()
-        self.auto_open_door.clear()
+        self.door_auto_open.clear()
+        self.mqtt_door_open.clear()
 
     def update_outputs(self):
         # Relays

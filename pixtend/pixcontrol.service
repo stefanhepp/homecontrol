@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 #User=pi
 WorkingDirectory=/home/pi
-ExecStart=/home/pi/pixcontrol.py
+ExecStart=/home/pi/homecontrol/pixtend/pixcontrol.py
 # or always, on-abort, etc
 Restart=on-failure
 
