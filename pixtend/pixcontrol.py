@@ -367,6 +367,8 @@ class HomeControl(object):
         self.door_auto_open = StateSignal(True)
         self.all_off_time = TimeSignal(self.now, 6, 30, TimeSignal.LATER_THAN)
         self.all_off_trigger = StateSignal()
+        # reset stair light to sense on all-off timer
+        self.reset_stair_sense = StateSignal(True)
         self.pump_interval_1_start = TimeSignal(self.now, 11, 0, TimeSignal.LATER_THAN)
         self.pump_interval_1_end   = TimeSignal(self.now, 12, 0, TimeSignal.EARLIER_THAN)
         self.pump_interval_2_start = TimeSignal(self.now, 17, 0, TimeSignal.LATER_THAN)
@@ -514,6 +516,7 @@ class HomeControl(object):
         self.mqtt_all_off.publish(client, 'home/light/all_off', publish=False, retain=False)
 
         self.all_off_time.publish(client, 'home/settings/all_off_time')
+        self.reset_stair_sense.publish(client, "home/settings/reset_stair_sense")
         self.pump_interval_1_start.publish(client, 'home/pump/interval_1_start')
         self.pump_interval_1_end.publish(  client, 'home/pump/interval_1_end'  )
         self.pump_interval_2_start.publish(client, 'home/pump/interval_2_start')
@@ -626,7 +629,7 @@ class HomeControl(object):
         if self.switch_cellar.pressed == Button.SHORT:
             self.cellar_light.toggle()
         if self.switch_cellar.pressed == Button.LONG:
-            self.all_off()
+            self.all_off(cellar_only = True)
 
         # Send out changes via MQTT to HomeControl
         if self.livingroom_light.changed:
@@ -650,6 +653,8 @@ class HomeControl(object):
         # Turn off all lights when the timer triggers
         if self.all_off_trigger.changed and self.all_off_trigger.state:
             self.all_off()
+            if self.reset_stair_sense.output:
+                self.stair_light.update( self.STAIR_SENSE )
 
         # Clear handled events
         self.switch_garden.clear()
