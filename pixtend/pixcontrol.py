@@ -372,7 +372,7 @@ class HomeControl(object):
         self.pump_interval_1_start = TimeSignal(self.now, 11, 0, TimeSignal.LATER_THAN)
         self.pump_interval_1_end   = TimeSignal(self.now, 12, 0, TimeSignal.EARLIER_THAN)
         self.pump_interval_2_start = TimeSignal(self.now, 17, 0, TimeSignal.LATER_THAN)
-        self.pump_interval_2_end   = TimeSignal(self.now, 19, 0, TimeSignal.EARLIER_THAN)
+        self.pump_interval_2_end   = TimeSignal(self.now, 18, 0, TimeSignal.EARLIER_THAN)
         self.pump_interval_3_start = TimeSignal(self.now,  0, 0, TimeSignal.LATER_THAN)
         self.pump_interval_3_end   = TimeSignal(self.now,  0, 0, TimeSignal.EARLIER_THAN)
 
@@ -388,7 +388,7 @@ class HomeControl(object):
         # HomeControl relay signals
         self.livingroom_light = StateSignal()
         self.staircase_light = StateSignal()
-        self.stair_light = StateSignal(self.STAIR_OFF)
+        self.stair_light = StateSignal(self.STAIR_SENSE)
         self.stair_sensor = StateSignal()
 
         # MQTT IO signals

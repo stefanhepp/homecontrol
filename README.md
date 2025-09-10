@@ -9,6 +9,25 @@ Content
 - `homecontrol`: Sources and schematics for a simple AtMega based home automation controller with 8 24VDC digital inputs, 8 24VDC digital outputs (open collector), RS232 and 2 230VAC sense inputs.
 - `pixtend`: Sources for the main controller, based on an PiXtend v2-S with Raspberry 3B, written in Python. Connects via RS232 and MQTT to the network.
 
+Installation Pixtend OS
+=======================
+
+- Install Raspbian OS (64bit)
+   - `sudo rpi-imager`: Enable SSH, set hostname, username, password
+- Setup Rasbian, install software
+  ```
+  # Enable SPI, UART, console bootup, set locale
+  sudo raspi-config
+  sudo apt install vim screen git gpiod libgpiod-dev python3-dev python3-pip python3-paho-mqtt
+  ```
+- Install Pixtend Python library
+  ```
+  git clone https://git.kontron-electronics.de/sw/ked/raspberry-pi/pixtend-v2/pplv2.git
+  cd pplv2
+  git checkout 0.1.6-dev
+  ```
+
+
 License
 =======
 
