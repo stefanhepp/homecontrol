@@ -25,6 +25,20 @@ Installation Pixtend OS
   git clone https://git.kontron-electronics.de/sw/ked/raspberry-pi/pixtend-v2/pplv2.git
   cd pplv2
   git checkout 0.1.6-dev
+  python setup.py bdist_wheel
+  # Install into venv
+  python -m venv ~/.venv
+  source ~/.venv/bin/activate
+  pip install dist/pixtendlibv2-0.1.6-py3-none-any.whl
+  ```
+- Install pixcontrol script
+  ```
+  # Install prerequisites
+  . ~/.venv/bin/activate
+  pip install pyserial paho-mqtt
+  cd ~/homecontrol/pixtend
+  sudo cp pixcontrol.service /etc/systemd/system/
+  sudo systemctl enable pixcontrol
   ```
 
 

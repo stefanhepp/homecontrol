@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-#User=pi
+User=pi
 WorkingDirectory=/home/pi
-ExecStart=/home/pi/homecontrol/pixtend/pixcontrol.py
+ExecStart=/home/pi/homecontrol/pixtend/pixcontrol.sh
 # or always, on-abort, etc
 Restart=on-failure
 

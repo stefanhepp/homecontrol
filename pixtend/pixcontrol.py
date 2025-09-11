@@ -37,11 +37,11 @@ import paho.mqtt.client as mqtt
 
 class Debug:
      # Print Rx and Tx UART messages
-    DEBUG_UART_TX = False
-    DEBUG_UART_RX = False
+    DEBUG_UART_TX = True
+    DEBUG_UART_RX = True
 
     # Debug MQTT messages
-    DEBUG_MQTT = False
+    DEBUG_MQTT = True
    
 
 class Button(object):
@@ -149,7 +149,8 @@ class Signal(object):
         self._translate = TableSerializer( value )
 
     def on_message(self, client, userdata, msg):
-        data = self._translate.deserialize( str( msg.payload ) )
+        payload = msg.payload.decode("ascii")
+        data = self._translate.deserialize( str( payload ) )
         if Debug.DEBUG_MQTT:
             print("Received MQTT topic: ", msg.topic, data)
         if data is not None:
@@ -477,8 +478,8 @@ class HomeControl(object):
             
 
     def mqtt_setup(self):
-        self.mqtt = mqtt.Client("Pixtend")
-        self.mqtt.on_connect = lambda c, d, f, r: self.mqtt_connect(c, d, f, r)
+        self.mqtt = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "pixcontrol")
+        self.mqtt.on_connect = lambda c, d, f, r, p: self.mqtt_connect(c, d, f, r, p)
         self.mqtt.on_message = lambda c, d, m: self.mqtt_message(c, d, m)
         self.mqtt.connect_async("homectl.home")
         self.mqtt.loop_start()
@@ -487,7 +488,7 @@ class HomeControl(object):
         if self.mqtt is not None:
             self.mqtt.loop_stop()
 
-    def mqtt_connect(self, client, userdata, flags, rc):
+    def mqtt_connect(self, client, userdata, flags, rc, properties):
         self.livingroom_light.publish(client, 'home/light/livingroom')
         self.staircase_light.publish(client, 'home/light/staircase')
         self.stair_light.translate = {self.STAIR_OFF: 'off', self.STAIR_ON: 'on', self.STAIR_SENSE: 'sense'}
@@ -548,8 +549,8 @@ class HomeControl(object):
         self.uart_buf += list( self.uart.read(100) )
         # Scan UART buffer for messages
         while len( self.uart_buf ) > 1:
-            cmd = ord(self.uart_buf[0])
-            val = ord(self.uart_buf[1])
+            cmd = self.uart_buf[0]
+            val = self.uart_buf[1]
             if Debug.DEBUG_UART_RX:
                 print(str(datetime.datetime.now()) + " Receive UART Cmd: " + hex(cmd) + ", Val: "  + hex(val))
             if cmd & 0xF0 == self.UART_CMD_HEADER:
@@ -595,7 +596,8 @@ class HomeControl(object):
     def send_uart(self, cmd, value):
         if Debug.DEBUG_UART_TX:
             print(str(datetime.datetime.now()) + " Send UART Cmd: " + hex(cmd) + ", Val: " + hex(value))
-        self.uart.write( chr(self.UART_CMD_HEADER + cmd) + chr( int( value ) ) )
+        self.uart.write( bytes(self.UART_CMD_HEADER + cmd) )
+        self.uart.write( bytes(value) )
 
     def uart_read_status(self):
         self.send_uart(self.UART_CMD_STATUS, 0)
