@@ -37,11 +37,11 @@ import paho.mqtt.client as mqtt
 
 class Debug:
      # Print Rx and Tx UART messages
-    DEBUG_UART_TX = True
-    DEBUG_UART_RX = True
+    DEBUG_UART_TX = False
+    DEBUG_UART_RX = False
 
     # Debug MQTT messages
-    DEBUG_MQTT = True
+    DEBUG_MQTT = False
    
 
 class Button(object):
@@ -475,6 +475,8 @@ class HomeControl(object):
         if not cellar_only:
             self.send_uart(self.UART_CMD_ALL_OFF, 1)
             self.uart_read_status()
+            self.mqtt.publish('tvroom/leds/lamps', 'off')
+            self.mqtt.publish('tvroom/leds/leds', 'off')
             
 
     def mqtt_setup(self):
@@ -596,8 +598,8 @@ class HomeControl(object):
     def send_uart(self, cmd, value):
         if Debug.DEBUG_UART_TX:
             print(str(datetime.datetime.now()) + " Send UART Cmd: " + hex(cmd) + ", Val: " + hex(value))
-        self.uart.write( bytes(self.UART_CMD_HEADER + cmd) )
-        self.uart.write( bytes(value) )
+        self.uart.write( (self.UART_CMD_HEADER + cmd).to_bytes() )
+        self.uart.write( (value).to_bytes() )
 
     def uart_read_status(self):
         self.send_uart(self.UART_CMD_STATUS, 0)
