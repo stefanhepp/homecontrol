@@ -477,6 +477,7 @@ class HomeControl(object):
             self.uart_read_status()
             self.mqtt.publish('tvroom/leds/lamps', 'off')
             self.mqtt.publish('tvroom/leds/leds', 'off')
+            self.mqtt.publish('shelly/tv/output', 'off')
             
 
     def mqtt_setup(self):
